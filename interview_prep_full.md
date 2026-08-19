@@ -15,7 +15,6 @@ That combination — staying hands-on while also owning delivery and growing the
 - Keep it under 90 seconds. This is a preview, not the full story — let them pull threads.
 - Say it out loud 3–4 times before the 20th until it doesn't sound memorized.
 - If they interrupt early to dig into the backpressure story or Sara's story, that's a good sign — follow their lead using the STAR versions in the other files.
--e 
 
 
 # STAR: The export backpressure fix
@@ -42,7 +41,6 @@ Export failures dropped from 10–15 a day to zero, confirmed through clean logs
 - **"Why not just wait and build the broker from the start?"** → Speed to fix a live, active production issue mattered more than building the ideal long-term solution immediately; the channel fully solved the actual failure mode we were seeing.
 - **"What's your exposure today?"** → Full message loss if the process crashes mid-flight. Accepted because volume is low and crashes are rare — this is exactly why the broker migration is prioritized next.
 - **"Why does a channel fix a race condition / ensure order?"** → With a single consumer reading from the channel, each item is processed by only one thread at a time — the safety comes from single-consumer semantics.
--e 
 
 
 # STAR: Sara's 6-month development plan
@@ -68,7 +66,6 @@ Over six months, Sara became noticeably stronger at handling and profiling compl
 ### Likely follow-ups and answers
 - **"How did you measure whether the plan worked?"** → Fewer recurring issues in code review, growing independence in tasks she previously needed help with, and ultimately her taking on client-facing responsibility she couldn't have handled at the start.
 - **"Was there resistance or difficulty along the way?"** → Some topics required repeating and revisiting — not everything landed the first time, which is normal; the follow-up pairing sessions were part of the design, not a failure.
--e 
 
 
 # STAR: The microservice architecture disagreement
@@ -93,7 +90,6 @@ In practice, the outcome leaned toward my original concern: we ended up duplicat
 - **"So who was right?"** → In hindsight, the cost outweighed the benefit at that stage — but the architect's underlying goal, building team capability ahead of a real migration, was legitimate; the timing and this specific feature were the issue, not the direction.
 - **"What would you do differently?"** → Extract services when the seams are already painful and duplication/scale genuinely demand it, rather than preemptively as an architectural bet.
 - **"How did you handle being overruled?"** → Committed fully and visibly — built it well and taught the team, rather than executing half-heartedly or relitigating the decision after it was made.
--e 
 
 ---
 
@@ -244,6 +240,61 @@ Reliability first. A feature that's fully working but only serves a small load i
 **Q: Tell me about a time someone on your team wasn't performing at the level you needed. How did you handle it?**
 
 I had a senior engineer who was consistently strong — good code quality, on-time delivery, solid technical input with the team. About three months in, I noticed a real drop — recurring issues on things we'd already aligned on, less engagement generally. I started with a private one-to-one, not to correct him but to understand what was going on, staying open to a few possibilities — personal issues, burnout, feeling over- or under-loaded, or not feeling enough ownership. It turned out he was dealing with some personal issues outside work that were weighing on him. I told him he could talk to me as a friend, not just as his lead, and made sure to check in regularly so he didn't feel like he was carrying it alone. Over time, his performance and engagement came back, and he's fully re-engaged with the team now.
+
+---
+
+## 16. IoC / Dependency Injection (Edsart)
+**Q: How do you use DI in a real .NET service, and tell me about a time it saved you from a problem.**
+
+We follow domain-driven design with layered architecture. We depend on interfaces for the infrastructure layer rather than concrete implementations, wired up through .NET's built-in DI container. That gives us isolation from the underlying layer — we can call the database through EF Core, or swap an external API client, without touching business logic. It also makes unit testing much easier, since we mock dependencies through the container instead of hitting real infrastructure.
+
+*(Gap to fill before the 20th: a specific instance where swapping an implementation behind an interface — a provider, a client, a logging sink — actually saved real time or avoided a painful change. Have one ready.)*
+
+---
+
+## 17. Cross-team collaboration that started badly (Thomas)
+**Q: Tell me about a time collaboration with product/QA/data went badly at first, and how you fixed it.**
+
+Early on with the product team, some PBIs weren't detailed enough — missing clear acceptance criteria or success conditions, which led to rework and back-and-forth. Rather than keep working around it feature by feature, I pushed for internal meetings with the business team to align on how PBIs should be written — clear acceptance criteria, defined success conditions, up front. Once that became the norm, requirements got noticeably clearer and we stopped losing time to ambiguity mid-development.
+
+---
+
+## 18. Managing technical debt deliberately (Edsart)
+**Q: Tell me about technical debt you deliberately accepted, and how you tracked the risk.**
+
+A clear one is the export channel decision — we chose an in-memory channel over a message broker, knowing it trades away persistence and durability for speed of implementation. That's a real, acknowledged technical debt: if the process crashes, in-flight messages are lost. We didn't just let it sit invisible — I made sure it was visible by tracking it with the team and flagging it to our PM as a known limitation tied to expected throughput growth. It's now on our backlog as a prioritized item, not an unknown risk — that's the difference between accepted debt and forgotten debt.
+
+*(Keep consistent with the backpressure story elsewhere in this doc — this is the same decision, told from the "managing debt" angle. Don't contradict the "it's on the backlog" detail.)*
+
+---
+
+## 19. Onboarding a new engineer (Thomas)
+**Q: Tell me about a time you onboarded a new engineer. What made it go well or not well?**
+
+My approach is gradual by design. I start with business context — what the project does, why it matters — before touching code. Then I share curated resources relevant to our stack. After that, I introduce them to the codebase incrementally, one service at a time rather than the whole system at once, starting with small, clearly scoped tasks that grow in complexity. I don't expect full understanding in week one — over roughly the first three months, they build up context at a pace that actually sticks.
+
+*(If pushed for a specific person and moment rather than a method: use Sara, told from her first weeks — what her first small task was, how she was introduced to the codebase — rather than the later development-plan angle.)*
+
+---
+
+## 20. Securing a .NET application (Edsart)
+**Q: In your .NET app, how do you secure it?**
+
+I think about it in layers — identity, transport, data, and code/dependencies — rather than one single control.
+
+**Authentication and authorization:** We use OAuth2/OpenID Connect via an identity provider (e.g. Microsoft Entra ID), issuing JWTs, validated on every request through ASP.NET Core's built-in authentication middleware. Authorization is policy- and role-based (`[Authorize(Policy = ...)]`), so access rules live in one place rather than scattered checks across controllers.
+
+**Transport and secrets:** HTTPS enforced everywhere (HSTS, redirect middleware), and no secrets or connection strings in source or config files — we use Azure Key Vault, pulled in via managed identity so the app never handles a credential to authenticate to Key Vault itself.
+
+**Data protection:** Sensitive data (in our case, clinical data) encrypted at rest and in transit, with the principle of least privilege on database and storage access — services get scoped access to only what they need, not broad account-level keys.
+
+**Input validation and common vulnerabilities:** Model validation and strict DTOs at API boundaries to avoid over-posting, parameterized queries via EF Core to prevent SQL injection, and standard middleware protections (CORS locked to known origins, anti-forgery tokens where relevant, rate limiting on public endpoints to reduce abuse/DoS risk).
+
+**Dependencies and supply chain:** Regular dependency scanning (e.g. `dotnet list package --vulnerable`, Dependabot/Azure DevOps equivalents) so we're not shipping known CVEs in third-party packages.
+
+**Logging and monitoring:** Audit logging on sensitive operations, but careful never to log PII or secrets — this matters a lot given we handle clinical data, so we treat what goes into logs as a security decision, not just an observability one.
+
+*(If Edsart asks for a real example: use the clinical/measurement API from your healthcare project — since it receives sensitive data from an external client over a "sensitive and critical API endpoint," as you described it, that's a natural place to describe the actual auth mechanism and data handling you use there. Have that specific detail ready — client certificate auth? API key plus OAuth? mutual TLS? — because "sensitive and critical endpoint" will likely draw a follow-up on exactly how it's locked down.)*
 
 ---
 
